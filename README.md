@@ -83,6 +83,40 @@ python generate_network.py   # Then generate network
 | `MIN_APPEARANCES` | `5` | Minimum file appearances to include a person |
 | `MIN_EDGE_WEIGHT` | `3` | Minimum co-occurrences to show an edge |
 
+### Network Viewer (network_viewer.html)
+
+Interactive web-based visualization for exploring the network graph. Handles large networks (400K+ edges) with WebGL rendering.
+
+```bash
+python serve.py
+```
+
+This starts a local server on port 8080 and opens the viewer in your browser.
+
+**Features:**
+- Zoom in/out (scroll) and pan (drag) to explore the network
+- Filter by minimum appearances and edge weight using sliders
+- Search to highlight matching nodes (yellow) without hiding others
+- Click nodes to see their connections and edge weights
+- Force-directed layout with progress indicator (runs in background)
+- Adaptive label display based on zoom level
+
+**Controls:**
+| Control | Description |
+|---------|-------------|
+| Scroll | Zoom in/out |
+| Drag | Pan the view |
+| Click node | Show node details and connections |
+| Search box | Highlight matching nodes |
+| Min Appearances | Filter nodes by appearance count |
+| Min Edge Weight | Filter edges by co-occurrence weight |
+| Run Layout | Reorganize graph using force-directed algorithm |
+
+**Files:**
+- `network_viewer.html` - Main viewer application
+- `layout-worker.js` - Web worker for background layout calculation
+- `serve.py` - Simple HTTP server to run the viewer
+
 ## Output Files
 
 | File | Description |
@@ -97,3 +131,6 @@ python generate_network.py   # Then generate network
 | `network_map_top100.pdf` | Top 100 individuals network |
 | `network_edges_spacy.csv` | Network edge list |
 | `network_nodes_spacy.csv` | Network node list |
+| `network_viewer.html` | Interactive network viewer |
+| `layout-worker.js` | Web worker for layout calculation |
+| `serve.py` | HTTP server for the viewer |

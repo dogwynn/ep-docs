@@ -1,0 +1,790 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Network Map Viewer</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/sigma.js/2.4.0/sigma.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/graphology/0.25.4/graphology.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/graphology-layout-forceatlas2/0.10.1/graphology-layout-forceatlas2.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #1a1a2e;
+            color: #eee;
+            overflow: hidden;
+        }
+        #container {
+            width: 100vw;
+            height: 100vh;
+            position: relative;
+        }
+        #sigma-container {
+            width: 100%;
+            height: 100%;
+            background: #0f0f1a;
+        }
+        #controls {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(26, 26, 46, 0.95);
+            padding: 15px;
+            border-radius: 8px;
+            width: 300px;
+            max-height: calc(100vh - 40px);
+            overflow-y: auto;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+            z-index: 100;
+        }
+        #controls h2 {
+            margin-bottom: 15px;
+            color: #64b5f6;
+            font-size: 16px;
+        }
+        .control-group {
+            margin-bottom: 15px;
+        }
+        .control-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-size: 12px;
+            color: #aaa;
+        }
+        input[type="text"], input[type="range"], select {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #333;
+            border-radius: 4px;
+            background: #252540;
+            color: #eee;
+            font-size: 14px;
+        }
+        input[type="range"] {
+            padding: 0;
+            cursor: pointer;
+        }
+        button {
+            width: 100%;
+            padding: 10px;
+            border: none;
+            border-radius: 4px;
+            background: #3f51b5;
+            color: white;
+            cursor: pointer;
+            font-size: 14px;
+            margin-top: 5px;
+        }
+        button:hover {
+            background: #5c6bc0;
+        }
+        button.secondary {
+            background: #424242;
+        }
+        button.secondary:hover {
+            background: #616161;
+        }
+        #stats {
+            font-size: 11px;
+            color: #888;
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid #333;
+        }
+        #node-info {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(26, 26, 46, 0.95);
+            padding: 15px;
+            border-radius: 8px;
+            width: 280px;
+            max-height: 400px;
+            overflow-y: auto;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+            display: none;
+            z-index: 100;
+        }
+        #node-info h3 {
+            color: #64b5f6;
+            margin-bottom: 10px;
+            word-wrap: break-word;
+        }
+        #node-info .connections {
+            font-size: 12px;
+            max-height: 250px;
+            overflow-y: auto;
+        }
+        #node-info .connection-item {
+            padding: 4px 0;
+            border-bottom: 1px solid #333;
+            display: flex;
+            justify-content: space-between;
+        }
+        #loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            z-index: 200;
+        }
+        #loading .spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid #333;
+            border-top-color: #64b5f6;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        #zoom-indicator {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(26, 26, 46, 0.9);
+            padding: 10px 15px;
+            border-radius: 4px;
+            font-size: 12px;
+            z-index: 100;
+        }
+        #layout-progress {
+            display: none;
+            margin-top: 10px;
+        }
+        #layout-progress .progress-bar {
+            height: 8px;
+            background: #333;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        #layout-progress .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #3f51b5, #64b5f6);
+            width: 0%;
+            transition: width 0.2s;
+        }
+        #layout-progress .progress-text {
+            font-size: 11px;
+            color: #888;
+            margin-top: 4px;
+            text-align: center;
+        }
+        .range-value {
+            display: inline-block;
+            min-width: 50px;
+            text-align: right;
+            color: #64b5f6;
+        }
+        #legend {
+            margin-top: 15px;
+            padding-top: 10px;
+            border-top: 1px solid #333;
+        }
+        #legend h4 {
+            font-size: 12px;
+            color: #aaa;
+            margin-bottom: 8px;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            font-size: 11px;
+            margin: 4px 0;
+        }
+        .legend-color {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div id="container">
+        <div id="sigma-container"></div>
+
+        <div id="loading">
+            <div class="spinner"></div>
+            <div>Loading network data...</div>
+            <div id="load-progress" style="margin-top: 10px; font-size: 12px; color: #888;"></div>
+        </div>
+
+        <div id="controls">
+            <h2>Network Controls</h2>
+
+            <div class="control-group">
+                <label>Search Node</label>
+                <input type="text" id="search" placeholder="Type to search...">
+            </div>
+
+            <div class="control-group">
+                <label>Min Appearances: <span class="range-value" id="min-appearances-val">50</span></label>
+                <input type="range" id="min-appearances" min="1" max="500" value="50">
+            </div>
+
+            <div class="control-group">
+                <label>Min Edge Weight: <span class="range-value" id="min-weight-val">10</span></label>
+                <input type="range" id="min-weight" min="1" max="200" value="10">
+            </div>
+
+            <div class="control-group">
+                <label>Node Size Scale: <span class="range-value" id="node-scale-val">1.0</span></label>
+                <input type="range" id="node-scale" min="0.1" max="3" step="0.1" value="1">
+            </div>
+
+            <div class="control-group">
+                <button id="reset-view">Reset View</button>
+                <button id="toggle-layout" class="secondary">Run Layout</button>
+                <div id="layout-progress">
+                    <div class="progress-bar"><div class="progress-fill"></div></div>
+                    <div class="progress-text">0%</div>
+                </div>
+            </div>
+
+            <div id="stats">
+                <div>Visible Nodes: <span id="visible-nodes">0</span></div>
+                <div>Visible Edges: <span id="visible-edges">0</span></div>
+                <div>Zoom: <span id="zoom-level">1.00</span>x</div>
+            </div>
+
+            <div id="legend">
+                <h4>Node Size = Appearances</h4>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #e91e63;"></div>
+                    <span>High connectivity (hub)</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #2196f3;"></div>
+                    <span>Medium connectivity</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #4caf50;"></div>
+                    <span>Low connectivity</span>
+                </div>
+            </div>
+        </div>
+
+        <div id="node-info">
+            <h3 id="info-name">Node Name</h3>
+            <div id="info-appearances"></div>
+            <div id="info-degree"></div>
+            <h4 style="margin-top: 10px; font-size: 12px; color: #aaa;">Top Connections:</h4>
+            <div class="connections" id="info-connections"></div>
+        </div>
+
+        <div id="zoom-indicator">
+            Scroll to zoom | Drag to pan | Click node for details
+        </div>
+    </div>
+
+    <script>
+        // Global state
+        let graph = null;
+        let renderer = null;
+        let allNodes = [];
+        let allEdges = [];
+        let currentFilters = {
+            minAppearances: 50,
+            minWeight: 10
+        };
+
+        // Load CSV data with progress
+        async function loadCSV(url, progressCallback) {
+            const response = await fetch(url);
+            const reader = response.body.getReader();
+            const contentLength = +response.headers.get('Content-Length') || 0;
+
+            let receivedLength = 0;
+            let chunks = [];
+
+            while(true) {
+                const {done, value} = await reader.read();
+                if (done) break;
+                chunks.push(value);
+                receivedLength += value.length;
+                if (progressCallback && contentLength) {
+                    progressCallback(Math.round(receivedLength / contentLength * 100));
+                }
+            }
+
+            const chunksAll = new Uint8Array(receivedLength);
+            let position = 0;
+            for(let chunk of chunks) {
+                chunksAll.set(chunk, position);
+                position += chunk.length;
+            }
+
+            const text = new TextDecoder('utf-8').decode(chunksAll);
+            const lines = text.trim().split('\n');
+            const headers = lines[0].split(',');
+            return lines.slice(1).map(line => {
+                const values = line.split(',');
+                const obj = {};
+                headers.forEach((h, i) => obj[h.trim()] = values[i]?.trim());
+                return obj;
+            });
+        }
+
+        // Color based on degree
+        function getNodeColor(degree) {
+            if (degree > 100) return '#e91e63';
+            if (degree > 30) return '#2196f3';
+            return '#4caf50';
+        }
+
+        // Initialize the graph
+        async function initGraph() {
+            const loadProgress = document.getElementById('load-progress');
+
+            try {
+                loadProgress.textContent = 'Loading nodes...';
+                const nodesData = await loadCSV('network_nodes_spacy.csv', (pct) => {
+                    loadProgress.textContent = `Loading nodes... ${pct}%`;
+                });
+                allNodes = nodesData.map(n => ({
+                    id: n.name,
+                    label: n.name,
+                    appearances: parseInt(n.appearances) || 1
+                }));
+
+                loadProgress.textContent = `Loaded ${allNodes.length} nodes. Loading edges (large file)...`;
+                const edgesData = await loadCSV('network_edges_spacy.csv', (pct) => {
+                    loadProgress.textContent = `Loading edges... ${pct}%`;
+                });
+                allEdges = edgesData.map((e, i) => ({
+                    id: `e${i}`,
+                    source: e.from,
+                    target: e.to,
+                    weight: parseInt(e.weight) || 1
+                }));
+
+                loadProgress.textContent = `Loaded ${allEdges.length} edges. Building graph...`;
+
+                // Set higher initial filters for large datasets
+                if (allEdges.length > 100000) {
+                    currentFilters.minAppearances = 100;
+                    currentFilters.minWeight = 50;
+                    document.getElementById('min-appearances').value = 100;
+                    document.getElementById('min-weight').value = 50;
+                    document.getElementById('min-appearances-val').textContent = '100';
+                    document.getElementById('min-weight-val').textContent = '50';
+                }
+
+                // Create filtered graph
+                buildGraph();
+
+                document.getElementById('loading').style.display = 'none';
+
+            } catch (error) {
+                loadProgress.textContent = 'Error loading data: ' + error.message;
+                console.error(error);
+            }
+        }
+
+        function buildGraph() {
+            // Create new graph
+            graph = new graphology.Graph();
+
+            // Filter nodes
+            const minApp = currentFilters.minAppearances;
+
+            const filteredNodes = allNodes.filter(n => {
+                return n.appearances >= minApp;
+            });
+
+            const nodeSet = new Set(filteredNodes.map(n => n.id));
+
+            // Add nodes with positions
+            const nodeCount = filteredNodes.length;
+            filteredNodes.forEach((node, i) => {
+                const angle = (2 * Math.PI * i) / nodeCount;
+                const radius = 100 + Math.random() * 400;
+                graph.addNode(node.id, {
+                    x: radius * Math.cos(angle) + (Math.random() - 0.5) * 50,
+                    y: radius * Math.sin(angle) + (Math.random() - 0.5) * 50,
+                    size: Math.max(3, Math.log(node.appearances) * 2 * parseFloat(document.getElementById('node-scale').value)),
+                    label: node.label,
+                    appearances: node.appearances,
+                    color: '#4caf50'
+                });
+            });
+
+            // Filter and add edges
+            const minWeight = currentFilters.minWeight;
+            let edgeCount = 0;
+
+            allEdges.forEach(edge => {
+                if (edge.weight < minWeight) return;
+                if (!nodeSet.has(edge.source) || !nodeSet.has(edge.target)) return;
+                if (edge.source === edge.target) return;
+
+                try {
+                    graph.addEdge(edge.source, edge.target, {
+                        weight: edge.weight,
+                        size: Math.max(0.5, Math.log(edge.weight) * 0.3),
+                        color: 'rgba(255,255,255,0.15)'
+                    });
+                    edgeCount++;
+                } catch (e) {
+                    // Skip duplicate edges
+                }
+            });
+
+            // Update node colors based on degree
+            graph.forEachNode((node, attrs) => {
+                const degree = graph.degree(node);
+                graph.setNodeAttribute(node, 'color', getNodeColor(degree));
+            });
+
+            // Update stats
+            document.getElementById('visible-nodes').textContent = graph.order;
+            document.getElementById('visible-edges').textContent = graph.size;
+
+            // Create or update renderer
+            if (renderer) {
+                renderer.kill();
+            }
+
+            renderer = new Sigma(graph, document.getElementById('sigma-container'), {
+                renderLabels: true,
+                labelRenderedSizeThreshold: 12,
+                labelFont: 'Arial',
+                labelSize: 12,
+                labelColor: { color: '#ffffff' },
+                labelBackgroundColor: '#000000',
+                labelRenderer: (context, data, settings) => {
+                    const size = settings.labelSize;
+                    const font = settings.labelFont;
+                    const weight = 'normal';
+                    context.font = `${weight} ${size}px ${font}`;
+                    const textWidth = context.measureText(data.label).width;
+                    const padding = 2;
+
+                    context.fillStyle = '#000000';
+                    context.fillRect(
+                        data.x + data.size + 3,
+                        data.y - size / 2 - padding,
+                        textWidth + padding * 2,
+                        size + padding * 2
+                    );
+
+                    context.fillStyle = '#ffffff';
+                    context.fillText(data.label, data.x + data.size + 3 + padding, data.y + size / 3);
+                },
+                hoverRenderer: (context, data, settings) => {
+                    const size = data.size + 3;
+                    context.beginPath();
+                    context.arc(data.x, data.y, size, 0, Math.PI * 2);
+                    context.fillStyle = '#ffffff';
+                    context.fill();
+                    context.closePath();
+
+                    // Draw label with dark background
+                    const label = data.label;
+                    const fontSize = 14;
+                    context.font = `bold ${fontSize}px Arial`;
+                    const textWidth = context.measureText(label).width;
+                    const padding = 4;
+
+                    context.fillStyle = '#000000';
+                    context.fillRect(
+                        data.x + size + 3,
+                        data.y - fontSize / 2 - padding,
+                        textWidth + padding * 2,
+                        fontSize + padding * 2
+                    );
+
+                    context.fillStyle = '#ffffff';
+                    context.fillText(label, data.x + size + 3 + padding, data.y + fontSize / 3);
+                },
+                defaultEdgeColor: 'rgba(255,255,255,0.15)',
+                minCameraRatio: 0.01,
+                maxCameraRatio: 10
+            });
+
+            // Setup interactions
+            setupInteractions();
+        }
+
+        function setupInteractions() {
+            // Node hover
+            renderer.on('enterNode', ({ node }) => {
+                document.body.style.cursor = 'pointer';
+            });
+
+            renderer.on('leaveNode', () => {
+                document.body.style.cursor = 'default';
+            });
+
+            // Node click
+            renderer.on('clickNode', ({ node }) => {
+                showNodeInfo(node);
+            });
+
+            // Click background to hide info
+            renderer.on('clickStage', () => {
+                document.getElementById('node-info').style.display = 'none';
+            });
+
+            // Camera updates with adaptive label threshold
+            renderer.getCamera().on('updated', () => {
+                const ratio = renderer.getCamera().ratio;
+                const zoomLevel = 1 / ratio;
+                document.getElementById('zoom-level').textContent = zoomLevel.toFixed(2);
+
+                // Adjust label threshold based on zoom
+                const newThreshold = Math.max(4, 20 - zoomLevel * 3);
+                renderer.setSetting('labelRenderedSizeThreshold', newThreshold);
+            });
+        }
+
+        function showNodeInfo(nodeId) {
+            const attrs = graph.getNodeAttributes(nodeId);
+            const infoPanel = document.getElementById('node-info');
+
+            document.getElementById('info-name').textContent = attrs.label;
+            document.getElementById('info-appearances').textContent = `Appearances: ${attrs.appearances}`;
+            document.getElementById('info-degree').textContent = `Connections: ${graph.degree(nodeId)}`;
+
+            // Get neighbors
+            const neighbors = [];
+            graph.forEachNeighbor(nodeId, (neighbor, neighborAttrs) => {
+                const edgeWeight = graph.hasEdge(nodeId, neighbor)
+                    ? graph.getEdgeAttribute(graph.edge(nodeId, neighbor), 'weight')
+                    : graph.getEdgeAttribute(graph.edge(neighbor, nodeId), 'weight');
+                neighbors.push({ name: neighborAttrs.label, weight: edgeWeight || 0 });
+            });
+
+            neighbors.sort((a, b) => b.weight - a.weight);
+
+            const connectionsHtml = neighbors.slice(0, 20).map(n =>
+                `<div class="connection-item"><span>${n.name}</span><span style="color:#888">${n.weight}</span></div>`
+            ).join('');
+
+            document.getElementById('info-connections').innerHTML = connectionsHtml;
+            infoPanel.style.display = 'block';
+
+            // Highlight node
+            graph.forEachNode((n) => {
+                if (n === nodeId) {
+                    graph.setNodeAttribute(n, 'highlighted', true);
+                } else {
+                    graph.setNodeAttribute(n, 'highlighted', false);
+                }
+            });
+        }
+
+        // Highlight nodes matching search term
+        function highlightSearch(searchTerm) {
+            const term = searchTerm.toLowerCase().trim();
+            let matchCount = 0;
+            let firstMatch = null;
+
+            graph.forEachNode((node, attrs) => {
+                const matches = term && attrs.label.toLowerCase().includes(term);
+                const degree = graph.degree(node);
+
+                if (matches) {
+                    matchCount++;
+                    if (!firstMatch) firstMatch = node;
+                    // Highlight matching nodes in yellow
+                    graph.setNodeAttribute(node, 'color', '#ffeb3b');
+                    graph.setNodeAttribute(node, 'zIndex', 1);
+                } else if (term) {
+                    // Dim non-matching nodes
+                    graph.setNodeAttribute(node, 'color', 'rgba(100,100,100,0.3)');
+                    graph.setNodeAttribute(node, 'zIndex', 0);
+                } else {
+                    // No search term - restore original colors
+                    graph.setNodeAttribute(node, 'color', getNodeColor(degree));
+                    graph.setNodeAttribute(node, 'zIndex', 0);
+                }
+            });
+
+            // Also dim/restore edges
+            graph.forEachEdge((edge, attrs, source, target) => {
+                const sourceMatches = term && graph.getNodeAttribute(source, 'label').toLowerCase().includes(term);
+                const targetMatches = term && graph.getNodeAttribute(target, 'label').toLowerCase().includes(term);
+
+                if (!term) {
+                    graph.setEdgeAttribute(edge, 'color', 'rgba(255,255,255,0.15)');
+                } else if (sourceMatches || targetMatches) {
+                    graph.setEdgeAttribute(edge, 'color', 'rgba(255,235,59,0.5)');
+                } else {
+                    graph.setEdgeAttribute(edge, 'color', 'rgba(255,255,255,0.05)');
+                }
+            });
+
+            // Update stats to show match count
+            if (term) {
+                document.getElementById('visible-nodes').textContent = `${matchCount} matches / ${graph.order}`;
+            } else {
+                document.getElementById('visible-nodes').textContent = graph.order;
+            }
+
+            renderer.refresh();
+        }
+
+        // Debounce helper
+        function debounce(func, wait) {
+            let timeout;
+            return function(...args) {
+                clearTimeout(timeout);
+                timeout = setTimeout(() => func.apply(this, args), wait);
+            };
+        }
+
+        // Setup controls
+        function setupControls() {
+            const minAppInput = document.getElementById('min-appearances');
+            const minWeightInput = document.getElementById('min-weight');
+            const nodeScaleInput = document.getElementById('node-scale');
+            const searchInput = document.getElementById('search');
+
+            const rebuild = debounce(() => buildGraph(), 300);
+
+            minAppInput.addEventListener('input', (e) => {
+                currentFilters.minAppearances = parseInt(e.target.value);
+                document.getElementById('min-appearances-val').textContent = e.target.value;
+                rebuild();
+            });
+
+            minWeightInput.addEventListener('input', (e) => {
+                currentFilters.minWeight = parseInt(e.target.value);
+                document.getElementById('min-weight-val').textContent = e.target.value;
+                rebuild();
+            });
+
+            nodeScaleInput.addEventListener('input', (e) => {
+                document.getElementById('node-scale-val').textContent = parseFloat(e.target.value).toFixed(1);
+                // Update node sizes
+                const scale = parseFloat(e.target.value);
+                graph.forEachNode((node, attrs) => {
+                    const baseSize = Math.max(3, Math.log(attrs.appearances) * 2);
+                    graph.setNodeAttribute(node, 'size', baseSize * scale);
+                });
+            });
+
+            searchInput.addEventListener('input', debounce((e) => {
+                highlightSearch(e.target.value);
+            }, 200));
+
+            document.getElementById('reset-view').addEventListener('click', () => {
+                renderer.getCamera().animate({ x: 0.5, y: 0.5, ratio: 1 }, { duration: 500 });
+            });
+
+            let layoutWorker = null;
+            let layoutRunning = false;
+
+            document.getElementById('toggle-layout').addEventListener('click', () => {
+                if (layoutRunning) {
+                    // Cancel running layout
+                    if (layoutWorker) {
+                        layoutWorker.terminate();
+                        layoutWorker = null;
+                    }
+                    layoutRunning = false;
+                    document.getElementById('toggle-layout').textContent = 'Run Layout';
+                    document.getElementById('layout-progress').style.display = 'none';
+                    return;
+                }
+
+                layoutRunning = true;
+                const btn = document.getElementById('toggle-layout');
+                btn.textContent = 'Cancel';
+
+                const progressDiv = document.getElementById('layout-progress');
+                const progressFill = progressDiv.querySelector('.progress-fill');
+                const progressText = progressDiv.querySelector('.progress-text');
+                progressDiv.style.display = 'block';
+                progressFill.style.width = '0%';
+                progressText.textContent = 'Starting...';
+
+                // Collect graph data for worker
+                const nodes = [];
+                graph.forEachNode((id, attrs) => {
+                    nodes.push({
+                        id: id,
+                        x: attrs.x,
+                        y: attrs.y,
+                        size: attrs.size
+                    });
+                });
+
+                const edges = [];
+                graph.forEachEdge((id, attrs, source, target) => {
+                    edges.push({
+                        source: source,
+                        target: target,
+                        weight: attrs.weight || 1
+                    });
+                });
+
+                // Adjust iterations based on graph size
+                const nodeCount = nodes.length;
+                let iterations = 100;
+                if (nodeCount > 1000) iterations = 150;
+                if (nodeCount > 2000) iterations = 200;
+
+                // Create and run worker
+                layoutWorker = new Worker('layout-worker.js');
+
+                layoutWorker.onmessage = function(e) {
+                    if (e.data.type === 'progress') {
+                        progressFill.style.width = e.data.progress + '%';
+                        progressText.textContent = e.data.progress + '%';
+                    } else if (e.data.type === 'complete') {
+                        // Apply new positions
+                        const positions = e.data.positions;
+                        graph.forEachNode((node) => {
+                            if (positions[node]) {
+                                graph.setNodeAttribute(node, 'x', positions[node].x);
+                                graph.setNodeAttribute(node, 'y', positions[node].y);
+                            }
+                        });
+
+                        renderer.refresh();
+                        layoutRunning = false;
+                        layoutWorker = null;
+                        btn.textContent = 'Run Layout';
+                        progressDiv.style.display = 'none';
+                    }
+                };
+
+                layoutWorker.onerror = function(error) {
+                    console.error('Layout worker error:', error);
+                    layoutRunning = false;
+                    layoutWorker = null;
+                    btn.textContent = 'Run Layout';
+                    progressText.textContent = 'Error - see console';
+                };
+
+                layoutWorker.postMessage({
+                    nodes: nodes,
+                    edges: edges,
+                    settings: {
+                        iterations: iterations,
+                        gravity: 1,
+                        scalingRatio: 10
+                    }
+                });
+            });
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            setupControls();
+            initGraph();
+        });
+    </script>
+</body>
+</html>
