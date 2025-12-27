@@ -1,0 +1,890 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Person Browser - Epstein Documents</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #1a1a2e;
+            color: #eee;
+            height: 100vh;
+            overflow: hidden;
+        }
+        .container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+        header {
+            background: rgba(26, 26, 46, 0.98);
+            padding: 15px 20px;
+            border-bottom: 1px solid #333;
+            display: flex;
+            gap: 20px;
+            align-items: center;
+            flex-shrink: 0;
+        }
+        header h1 {
+            font-size: 18px;
+            color: #64b5f6;
+            white-space: nowrap;
+        }
+        .search-container {
+            flex: 1;
+            max-width: 400px;
+        }
+        #search {
+            width: 100%;
+            padding: 10px 15px;
+            border: 1px solid #333;
+            border-radius: 6px;
+            background: #252540;
+            color: #eee;
+            font-size: 14px;
+        }
+        #search:focus {
+            outline: none;
+            border-color: #64b5f6;
+        }
+        .sort-container {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .sort-container label {
+            font-size: 12px;
+            color: #888;
+        }
+        #sort {
+            padding: 8px 12px;
+            border: 1px solid #333;
+            border-radius: 4px;
+            background: #252540;
+            color: #eee;
+            font-size: 13px;
+        }
+        .nav-links {
+            display: flex;
+            gap: 15px;
+        }
+        .nav-links a {
+            color: #64b5f6;
+            text-decoration: none;
+            font-size: 13px;
+        }
+        .nav-links a:hover {
+            text-decoration: underline;
+        }
+        .main-content {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+        .person-list {
+            width: 320px;
+            background: rgba(15, 15, 26, 0.95);
+            border-right: 1px solid #333;
+            display: flex;
+            flex-direction: column;
+            flex-shrink: 0;
+        }
+        .list-header {
+            padding: 12px 15px;
+            background: rgba(26, 26, 46, 0.9);
+            border-bottom: 1px solid #333;
+            font-size: 12px;
+            color: #888;
+        }
+        .list-items {
+            flex: 1;
+            overflow-y: auto;
+        }
+        .person-item {
+            padding: 12px 15px;
+            border-bottom: 1px solid #222;
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+        .person-item:hover {
+            background: rgba(100, 181, 246, 0.1);
+        }
+        .person-item.selected {
+            background: rgba(100, 181, 246, 0.2);
+            border-left: 3px solid #64b5f6;
+        }
+        .person-item .name {
+            font-size: 14px;
+            font-weight: 500;
+            margin-bottom: 4px;
+        }
+        .person-item .mentions {
+            font-size: 12px;
+            color: #888;
+        }
+        .detail-panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        .detail-header {
+            padding: 20px;
+            background: rgba(26, 26, 46, 0.9);
+            border-bottom: 1px solid #333;
+        }
+        .detail-header h2 {
+            font-size: 24px;
+            color: #64b5f6;
+            margin-bottom: 8px;
+        }
+        .detail-header .stats {
+            display: flex;
+            gap: 20px;
+            font-size: 13px;
+            color: #aaa;
+        }
+        .detail-header .stats span {
+            color: #64b5f6;
+        }
+        .aliases {
+            margin-top: 10px;
+            font-size: 12px;
+            color: #888;
+        }
+        .aliases strong {
+            color: #aaa;
+        }
+        .tabs {
+            display: flex;
+            background: rgba(15, 15, 26, 0.9);
+            border-bottom: 1px solid #333;
+            flex-shrink: 0;
+        }
+        .tab {
+            padding: 12px 20px;
+            font-size: 13px;
+            color: #888;
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+            transition: all 0.15s;
+        }
+        .tab:hover {
+            color: #ccc;
+            background: rgba(100, 181, 246, 0.05);
+        }
+        .tab.active {
+            color: #64b5f6;
+            border-bottom-color: #64b5f6;
+        }
+        .tab-badge {
+            background: #3f51b5;
+            color: white;
+            font-size: 10px;
+            padding: 2px 6px;
+            border-radius: 10px;
+            margin-left: 6px;
+        }
+        .tab-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+        }
+        .tab-panel {
+            display: none;
+        }
+        .tab-panel.active {
+            display: block;
+        }
+        .connection-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 15px;
+            background: rgba(37, 37, 64, 0.5);
+            border-radius: 6px;
+            margin-bottom: 8px;
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+        .connection-item:hover {
+            background: rgba(100, 181, 246, 0.15);
+        }
+        .connection-item .name {
+            font-size: 14px;
+        }
+        .connection-item .weight {
+            font-size: 12px;
+            color: #64b5f6;
+            background: rgba(100, 181, 246, 0.2);
+            padding: 3px 8px;
+            border-radius: 4px;
+        }
+        .quote-item {
+            background: rgba(37, 37, 64, 0.5);
+            border-radius: 6px;
+            padding: 15px;
+            margin-bottom: 12px;
+            border-left: 3px solid #3f51b5;
+        }
+        .quote-item .type {
+            font-size: 11px;
+            color: #888;
+            text-transform: uppercase;
+            margin-bottom: 8px;
+        }
+        .quote-item .question {
+            font-size: 13px;
+            color: #aaa;
+            font-style: italic;
+            margin-bottom: 8px;
+        }
+        .quote-item .answer {
+            font-size: 14px;
+            line-height: 1.5;
+        }
+        .quote-item .file {
+            font-size: 11px;
+            color: #666;
+            margin-top: 10px;
+        }
+        .entity-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 12px;
+            background: rgba(37, 37, 64, 0.3);
+            border-radius: 4px;
+            margin-bottom: 6px;
+        }
+        .entity-item .name {
+            font-size: 13px;
+        }
+        .entity-item .count {
+            font-size: 12px;
+            color: #888;
+        }
+        .timeline-container {
+            background: rgba(37, 37, 64, 0.3);
+            border-radius: 6px;
+            padding: 20px;
+        }
+        .timeline-bar {
+            display: flex;
+            align-items: flex-end;
+            height: 150px;
+            gap: 4px;
+            margin-bottom: 10px;
+        }
+        .timeline-bar-item {
+            flex: 1;
+            min-width: 20px;
+            background: #3f51b5;
+            border-radius: 2px 2px 0 0;
+            position: relative;
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+        .timeline-bar-item:hover {
+            background: #64b5f6;
+        }
+        .timeline-bar-item .tooltip {
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #000;
+            color: #fff;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            white-space: nowrap;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.15s;
+        }
+        .timeline-bar-item:hover .tooltip {
+            opacity: 1;
+        }
+        .timeline-labels {
+            display: flex;
+            gap: 4px;
+            font-size: 10px;
+            color: #666;
+        }
+        .timeline-labels span {
+            flex: 1;
+            text-align: center;
+        }
+        .documents-list {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .document-item {
+            padding: 8px 12px;
+            font-size: 12px;
+            color: #aaa;
+            border-bottom: 1px solid #222;
+            word-break: break-all;
+        }
+        .document-item:hover {
+            background: rgba(100, 181, 246, 0.05);
+        }
+        .load-more {
+            display: block;
+            width: 100%;
+            padding: 12px;
+            background: #3f51b5;
+            border: none;
+            border-radius: 6px;
+            color: white;
+            font-size: 14px;
+            cursor: pointer;
+            margin-top: 15px;
+        }
+        .load-more:hover {
+            background: #5c6bc0;
+        }
+        .load-more:disabled {
+            background: #333;
+            cursor: not-allowed;
+        }
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #666;
+        }
+        .empty-state h3 {
+            font-size: 18px;
+            margin-bottom: 10px;
+            color: #888;
+        }
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #888;
+        }
+        .spinner {
+            width: 30px;
+            height: 30px;
+            border: 3px solid #333;
+            border-top-color: #64b5f6;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        .view-network-btn {
+            display: inline-block;
+            padding: 8px 16px;
+            background: #3f51b5;
+            color: white;
+            text-decoration: none;
+            border-radius: 4px;
+            font-size: 12px;
+            margin-left: auto;
+        }
+        .view-network-btn:hover {
+            background: #5c6bc0;
+        }
+        .section-title {
+            font-size: 14px;
+            color: #64b5f6;
+            margin-bottom: 15px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #333;
+        }
+        /* Scrollbar styling */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #1a1a2e;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #333;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #444;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Person Browser</h1>
+            <div class="search-container">
+                <input type="text" id="search" placeholder="Search names..." autocomplete="off">
+            </div>
+            <div class="sort-container">
+                <label>Sort:</label>
+                <select id="sort">
+                    <option value="mentions">By Mentions</option>
+                    <option value="alpha">Alphabetical</option>
+                </select>
+            </div>
+            <div class="nav-links">
+                <a href="network_viewer.html">Network Viewer</a>
+            </div>
+        </header>
+
+        <div class="main-content">
+            <div class="person-list">
+                <div class="list-header">
+                    <span id="person-count">Loading...</span>
+                </div>
+                <div class="list-items" id="person-list">
+                    <div class="loading">
+                        <div class="spinner"></div>
+                        Loading persons...
+                    </div>
+                </div>
+            </div>
+
+            <div class="detail-panel" id="detail-panel">
+                <div class="empty-state" id="empty-state">
+                    <h3>Select a person</h3>
+                    <p>Choose someone from the list to view their information</p>
+                </div>
+
+                <div id="person-detail" style="display: none;">
+                    <div class="detail-header">
+                        <div style="display: flex; align-items: flex-start; gap: 20px;">
+                            <div style="flex: 1;">
+                                <h2 id="detail-name"></h2>
+                                <div class="stats">
+                                    <div>Mentions: <span id="detail-mentions"></span></div>
+                                    <div>Associates: <span id="detail-associates"></span></div>
+                                    <div>Quotes: <span id="detail-quotes"></span></div>
+                                </div>
+                                <div class="aliases" id="detail-aliases"></div>
+                            </div>
+                            <a href="#" class="view-network-btn" id="view-network-btn" target="_blank">View in Network</a>
+                        </div>
+                    </div>
+
+                    <div class="tabs">
+                        <div class="tab active" data-tab="connections">Connections</div>
+                        <div class="tab" data-tab="quotes">Quotes <span class="tab-badge" id="quotes-badge">0</span></div>
+                        <div class="tab" data-tab="organizations">Organizations</div>
+                        <div class="tab" data-tab="locations">Locations</div>
+                        <div class="tab" data-tab="timeline">Timeline</div>
+                        <div class="tab" data-tab="documents">Documents</div>
+                    </div>
+
+                    <div class="tab-content">
+                        <div class="tab-panel active" id="tab-connections">
+                            <div class="section-title">Top Associates (by shared documents)</div>
+                            <div id="connections-list"></div>
+                        </div>
+
+                        <div class="tab-panel" id="tab-quotes">
+                            <div class="section-title">Quotes & Testimony</div>
+                            <div id="quotes-list"></div>
+                            <button class="load-more" id="load-more-quotes" style="display: none;">Load More Quotes</button>
+                        </div>
+
+                        <div class="tab-panel" id="tab-organizations">
+                            <div class="section-title">Associated Organizations</div>
+                            <div id="organizations-list"></div>
+                        </div>
+
+                        <div class="tab-panel" id="tab-locations">
+                            <div class="section-title">Associated Locations</div>
+                            <div id="locations-list"></div>
+                        </div>
+
+                        <div class="tab-panel" id="tab-timeline">
+                            <div class="section-title">Mentions by Year</div>
+                            <div id="timeline-chart"></div>
+                        </div>
+
+                        <div class="tab-panel" id="tab-documents">
+                            <div class="section-title">Source Documents</div>
+                            <div id="documents-list"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global state
+        let personIndex = null;
+        let aliasMap = {};
+        let currentPerson = null;
+        let personCache = new Map();
+        let quotesOffset = 0;
+        let quotesTotal = 0;
+
+        // DOM elements
+        const searchInput = document.getElementById('search');
+        const sortSelect = document.getElementById('sort');
+        const personList = document.getElementById('person-list');
+        const personCount = document.getElementById('person-count');
+        const emptyState = document.getElementById('empty-state');
+        const personDetail = document.getElementById('person-detail');
+
+        // Load person index
+        async function loadIndex() {
+            try {
+                const response = await fetch('/data/person_index.json');
+                const data = await response.json();
+                personIndex = data.persons;
+                aliasMap = data.alias_map || {};
+                renderPersonList();
+
+                // Check for URL hash
+                if (window.location.hash) {
+                    const personName = decodeURIComponent(window.location.hash.slice(1));
+                    selectPersonByName(personName);
+                }
+            } catch (error) {
+                personList.innerHTML = '<div class="empty-state"><h3>Error loading data</h3><p>Make sure to run preprocess_browser_data.py first</p></div>';
+                console.error('Failed to load index:', error);
+            }
+        }
+
+        // Render person list
+        function renderPersonList() {
+            const searchTerm = searchInput.value.toUpperCase().trim();
+            const sortBy = sortSelect.value;
+
+            let filtered = personIndex;
+
+            if (searchTerm) {
+                filtered = personIndex.filter(p => {
+                    if (p.name.toUpperCase().includes(searchTerm)) return true;
+                    if (p.aliases && p.aliases.some(a => a.toUpperCase().includes(searchTerm))) return true;
+                    return false;
+                });
+            }
+
+            if (sortBy === 'alpha') {
+                filtered = [...filtered].sort((a, b) => a.name.localeCompare(b.name));
+            }
+
+            personCount.textContent = `${filtered.length} persons`;
+
+            if (filtered.length === 0) {
+                personList.innerHTML = '<div class="empty-state"><h3>No matches</h3><p>Try a different search term</p></div>';
+                return;
+            }
+
+            personList.innerHTML = filtered.slice(0, 500).map(p => `
+                <div class="person-item ${currentPerson === p.name ? 'selected' : ''}"
+                     data-name="${escapeHtml(p.name)}">
+                    <div class="name">${escapeHtml(p.name)}</div>
+                    <div class="mentions">${p.mentions.toLocaleString()} mentions</div>
+                </div>
+            `).join('');
+
+            // Add click handlers
+            personList.querySelectorAll('.person-item').forEach(item => {
+                item.addEventListener('click', () => selectPerson(item.dataset.name));
+            });
+        }
+
+        // Select a person by name
+        function selectPersonByName(name) {
+            const person = personIndex.find(p => p.name === name);
+            if (person) {
+                selectPerson(name);
+            }
+        }
+
+        // Select a person
+        async function selectPerson(name) {
+            currentPerson = name;
+            window.location.hash = encodeURIComponent(name);
+
+            // Update list selection
+            personList.querySelectorAll('.person-item').forEach(item => {
+                item.classList.toggle('selected', item.dataset.name === name);
+            });
+
+            // Show loading state
+            emptyState.style.display = 'none';
+            personDetail.style.display = 'flex';
+            personDetail.style.flexDirection = 'column';
+            personDetail.style.height = '100%';
+
+            // Load person data
+            let data = personCache.get(name);
+            if (!data) {
+                const safeName = name.replace(/[^A-Z0-9]/gi, '_').toUpperCase();
+                try {
+                    const response = await fetch(`/data/persons/${safeName}.json`);
+                    data = await response.json();
+                    personCache.set(name, data);
+                } catch (error) {
+                    console.error('Failed to load person:', error);
+                    return;
+                }
+            }
+
+            // Render person detail
+            renderPersonDetail(data);
+        }
+
+        // Render person detail
+        function renderPersonDetail(data) {
+            document.getElementById('detail-name').textContent = data.name;
+            document.getElementById('detail-mentions').textContent = data.mentions.toLocaleString();
+            document.getElementById('detail-associates').textContent = data.associates.length;
+            document.getElementById('detail-quotes').textContent = data.quote_count || data.quotes.length;
+
+            // Aliases
+            const aliasEl = document.getElementById('detail-aliases');
+            if (data.aliases && data.aliases.length > 0) {
+                aliasEl.innerHTML = '<strong>Also known as:</strong> ' + data.aliases.slice(0, 5).map(a => escapeHtml(a)).join(', ');
+                aliasEl.style.display = 'block';
+            } else {
+                aliasEl.style.display = 'none';
+            }
+
+            // Network link
+            document.getElementById('view-network-btn').href = `network_viewer.html?person=${encodeURIComponent(data.name)}`;
+
+            // Quotes badge
+            document.getElementById('quotes-badge').textContent = data.quote_count || data.quotes.length;
+
+            // Render connections
+            renderConnections(data.associates);
+
+            // Render quotes (from preloaded data)
+            quotesOffset = 0;
+            quotesTotal = data.quote_count || data.quotes.length;
+            renderQuotes(data.quotes, false);
+
+            // Render organizations
+            renderEntities('organizations-list', data.organizations);
+
+            // Render locations
+            renderEntities('locations-list', data.locations);
+
+            // Render timeline
+            renderTimeline(data.timeline);
+
+            // Render documents
+            renderDocuments(data.documents);
+
+            // Switch to connections tab
+            switchTab('connections');
+        }
+
+        // Render connections
+        function renderConnections(associates) {
+            const container = document.getElementById('connections-list');
+            if (!associates || associates.length === 0) {
+                container.innerHTML = '<div class="empty-state"><p>No connections found</p></div>';
+                return;
+            }
+
+            container.innerHTML = associates.map(a => `
+                <div class="connection-item" data-name="${escapeHtml(a.name)}">
+                    <div class="name">${escapeHtml(a.name)}</div>
+                    <div class="weight">${a.weight} shared docs</div>
+                </div>
+            `).join('');
+
+            // Add click handlers to navigate to connected person
+            container.querySelectorAll('.connection-item').forEach(item => {
+                item.addEventListener('click', () => {
+                    const name = item.dataset.name;
+                    if (personIndex.find(p => p.name === name)) {
+                        selectPerson(name);
+                        // Scroll list to show selected person
+                        const listItem = personList.querySelector(`[data-name="${name}"]`);
+                        if (listItem) {
+                            listItem.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        }
+                    }
+                });
+            });
+        }
+
+        // Render quotes
+        function renderQuotes(quotes, append = false) {
+            const container = document.getElementById('quotes-list');
+            const loadMoreBtn = document.getElementById('load-more-quotes');
+
+            if (!quotes || quotes.length === 0) {
+                if (!append) {
+                    container.innerHTML = '<div class="empty-state"><p>No quotes found</p></div>';
+                }
+                loadMoreBtn.style.display = 'none';
+                return;
+            }
+
+            const html = quotes.map(q => `
+                <div class="quote-item">
+                    <div class="type">${escapeHtml(q.type)}</div>
+                    ${q.question ? `<div class="question">Q: ${escapeHtml(q.question)}</div>` : ''}
+                    <div class="answer">${escapeHtml(q.answer || q.quote)}</div>
+                    ${q.file ? `<div class="file">${escapeHtml(q.file)}</div>` : ''}
+                </div>
+            `).join('');
+
+            if (append) {
+                container.insertAdjacentHTML('beforeend', html);
+            } else {
+                container.innerHTML = html;
+            }
+
+            // Update load more button
+            quotesOffset += quotes.length;
+            if (quotesOffset < quotesTotal) {
+                loadMoreBtn.style.display = 'block';
+                loadMoreBtn.textContent = `Load More (${quotesTotal - quotesOffset} remaining)`;
+            } else {
+                loadMoreBtn.style.display = 'none';
+            }
+        }
+
+        // Load more quotes from API
+        async function loadMoreQuotes() {
+            const btn = document.getElementById('load-more-quotes');
+            btn.disabled = true;
+            btn.textContent = 'Loading...';
+
+            try {
+                const response = await fetch(`/api/quotes?person=${encodeURIComponent(currentPerson)}&offset=${quotesOffset}&limit=50`);
+                const data = await response.json();
+                quotesTotal = data.total;
+                renderQuotes(data.quotes, true);
+            } catch (error) {
+                console.error('Failed to load quotes:', error);
+            }
+
+            btn.disabled = false;
+        }
+
+        // Render entities (orgs/locations)
+        function renderEntities(containerId, entities) {
+            const container = document.getElementById(containerId);
+            if (!entities || entities.length === 0) {
+                container.innerHTML = '<div class="empty-state"><p>No data found</p></div>';
+                return;
+            }
+
+            container.innerHTML = entities.map(e => `
+                <div class="entity-item">
+                    <div class="name">${escapeHtml(e.name)}</div>
+                    <div class="count">${e.count} mentions</div>
+                </div>
+            `).join('');
+        }
+
+        // Render timeline
+        function renderTimeline(timeline) {
+            const container = document.getElementById('timeline-chart');
+            if (!timeline || Object.keys(timeline).length === 0) {
+                container.innerHTML = '<div class="empty-state"><p>No timeline data</p></div>';
+                return;
+            }
+
+            const years = Object.keys(timeline).sort();
+            const counts = years.map(y => timeline[y]);
+            const maxCount = Math.max(...counts);
+
+            const barHtml = years.map((year, i) => {
+                const height = (counts[i] / maxCount) * 100;
+                return `
+                    <div class="timeline-bar-item" style="height: ${Math.max(height, 2)}%">
+                        <div class="tooltip">${year}: ${counts[i]} mentions</div>
+                    </div>
+                `;
+            }).join('');
+
+            // Show only some year labels
+            const step = Math.ceil(years.length / 10);
+            const labelHtml = years.map((year, i) =>
+                `<span>${i % step === 0 ? year : ''}</span>`
+            ).join('');
+
+            container.innerHTML = `
+                <div class="timeline-container">
+                    <div class="timeline-bar">${barHtml}</div>
+                    <div class="timeline-labels">${labelHtml}</div>
+                </div>
+            `;
+        }
+
+        // Render documents
+        function renderDocuments(documents) {
+            const container = document.getElementById('documents-list');
+            if (!documents || documents.length === 0) {
+                container.innerHTML = '<div class="empty-state"><p>No documents found</p></div>';
+                return;
+            }
+
+            container.innerHTML = `
+                <div class="documents-list">
+                    ${documents.map(d => `<div class="document-item">${escapeHtml(d)}</div>`).join('')}
+                </div>
+            `;
+        }
+
+        // Tab switching
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.classList.toggle('active', tab.dataset.tab === tabName);
+            });
+            document.querySelectorAll('.tab-panel').forEach(panel => {
+                panel.classList.toggle('active', panel.id === `tab-${tabName}`);
+            });
+        }
+
+        // Utility function
+        function escapeHtml(text) {
+            if (!text) return '';
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Debounce helper
+        function debounce(func, wait) {
+            let timeout;
+            return function(...args) {
+                clearTimeout(timeout);
+                timeout = setTimeout(() => func.apply(this, args), wait);
+            };
+        }
+
+        // Event listeners
+        searchInput.addEventListener('input', debounce(renderPersonList, 200));
+        sortSelect.addEventListener('change', renderPersonList);
+
+        document.querySelectorAll('.tab').forEach(tab => {
+            tab.addEventListener('click', () => switchTab(tab.dataset.tab));
+        });
+
+        document.getElementById('load-more-quotes').addEventListener('click', loadMoreQuotes);
+
+        // Handle hash changes
+        window.addEventListener('hashchange', () => {
+            if (window.location.hash) {
+                const personName = decodeURIComponent(window.location.hash.slice(1));
+                if (personName !== currentPerson) {
+                    selectPersonByName(personName);
+                }
+            }
+        });
+
+        // Initialize
+        loadIndex();
+    </script>
+</body>
+</html>

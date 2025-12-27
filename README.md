@@ -270,22 +270,53 @@ python alias_resolution.py --apply               # Create resolved_names.json
 
 ---
 
-### Network Viewer (Web Application)
+### Web Applications
 
-Interactive web-based visualization for exploring the network graph. Handles large networks (400K+ edges) with WebGL rendering.
+Two interactive web applications for exploring the data:
 
 ```bash
-python serve.py
+python serve.py              # Opens Person Browser (default)
+python serve.py --network    # Opens Network Viewer
 ```
 
-This starts a local server on port 8080 and opens the viewer in your browser.
+Both run on http://localhost:8080.
+
+#### Person Browser
+
+Search and browse all persons mentioned in the documents with detailed profiles.
 
 **Features:**
-- Zoom in/out (scroll) and pan (drag) to explore the network
-- Filter by minimum appearances and edge weight using sliders
-- Search to highlight matching nodes (yellow) without hiding others
-- Click nodes to see their connections and edge weights
-- Force-directed layout with progress indicator (runs in background)
+- Search by name or alias (e.g., "EPSTEIN", "MAXWELL")
+- Sort by mentions or alphabetically
+- Click any person to view their full profile
+- Navigate between connected persons
+- URL hash routing for shareable links
+
+**Profile Tabs:**
+| Tab | Description |
+|-----|-------------|
+| Connections | Associates ranked by shared document count |
+| Quotes | Testimony and depositions with pagination |
+| Organizations | Associated companies, agencies, institutions |
+| Locations | Geographic associations |
+| Timeline | Year-by-year mention chart |
+| Documents | Source document list |
+
+**Setup:** Run preprocessing once before first use:
+```bash
+python preprocess_browser_data.py
+```
+
+#### Network Viewer
+
+Interactive WebGL visualization for exploring the co-occurrence network. Handles large networks (400K+ edges).
+
+**Features:**
+- Zoom in/out (scroll) and pan (drag) to explore
+- Filter by minimum appearances and edge weight
+- Search to highlight matching nodes
+- Click nodes to see connections and weights
+- Force-directed layout with progress indicator
 - Adaptive label display based on zoom level
 
 **Controls:**
@@ -300,9 +331,11 @@ This starts a local server on port 8080 and opens the viewer in your browser.
 | Run Layout | Reorganize graph using force-directed algorithm |
 
 **Files:**
-- `network_viewer.html` - Main viewer application
+- `person_browser.html` - Person search and profile viewer
+- `network_viewer.html` - Network graph visualization
 - `layout-worker.js` - Web worker for background layout calculation
-- `serve.py` - Simple HTTP server to run the viewer
+- `preprocess_browser_data.py` - Generates indexed data for person browser
+- `serve.py` - HTTP server with API endpoints
 
 ---
 
@@ -342,6 +375,7 @@ This starts a local server on port 8080 and opens the viewer in your browser.
 | `redaction_detection_output/` | redaction_detection.py | Redacted sections |
 | `alias_resolution_output/` | alias_resolution.py | Name variant mappings |
 | `quote_attribution_output/` | quote_attribution.py | Attributed quotes |
+| `data/` | preprocess_browser_data.py | Person browser indexed data |
 
 ---
 
@@ -377,9 +411,17 @@ This starts a local server on port 8080 and opens the viewer in your browser.
    python document_similarity.py
    python cross_entity_analysis.py
    python entity_profiles.py
+   python alias_resolution.py
+   python quote_attribution.py
    ```
 
-6. **Explore interactively:**
+6. **Prepare web applications:**
    ```bash
-   python serve.py
+   python preprocess_browser_data.py
+   ```
+
+7. **Explore interactively:**
+   ```bash
+   python serve.py              # Person Browser
+   python serve.py --network    # Network Viewer
    ```

@@ -780,10 +780,26 @@
             });
         }
 
+        // Check for person parameter in URL
+        function checkPersonParameter() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const focusPerson = urlParams.get('person');
+            if (focusPerson) {
+                const searchInput = document.getElementById('search');
+                searchInput.value = focusPerson;
+                // Wait a bit for graph to be ready, then highlight
+                setTimeout(() => highlightSearch(focusPerson), 500);
+            }
+        }
+
         // Initialize
         document.addEventListener('DOMContentLoaded', () => {
             setupControls();
-            initGraph();
+            initGraph().then(() => {
+                checkPersonParameter();
+            }).catch(() => {
+                checkPersonParameter();
+            });
         });
     </script>
 </body>
