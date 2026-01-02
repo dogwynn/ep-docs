@@ -1,0 +1,718 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Geographic Map - Epstein Documents</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #1a1a2e;
+            color: #eee;
+            height: 100vh;
+            overflow: hidden;
+        }
+        .container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+        header {
+            background: rgba(26, 26, 46, 0.98);
+            padding: 15px 20px;
+            border-bottom: 1px solid #333;
+            display: flex;
+            gap: 20px;
+            align-items: center;
+            flex-shrink: 0;
+            z-index: 1000;
+        }
+        header h1 {
+            font-size: 18px;
+            color: #64b5f6;
+            white-space: nowrap;
+        }
+        .view-tabs {
+            display: flex;
+            gap: 5px;
+        }
+        .view-tab {
+            padding: 8px 16px;
+            background: #252540;
+            border: 1px solid #333;
+            border-radius: 4px;
+            color: #888;
+            cursor: pointer;
+            font-size: 13px;
+            transition: all 0.15s;
+        }
+        .view-tab:hover {
+            background: #333;
+            color: #ccc;
+        }
+        .view-tab.active {
+            background: #3f51b5;
+            border-color: #3f51b5;
+            color: white;
+        }
+        .search-container {
+            flex: 1;
+            max-width: 300px;
+        }
+        #search {
+            width: 100%;
+            padding: 10px 15px;
+            border: 1px solid #333;
+            border-radius: 6px;
+            background: #252540;
+            color: #eee;
+            font-size: 14px;
+        }
+        #search:focus {
+            outline: none;
+            border-color: #64b5f6;
+        }
+        .nav-links {
+            display: flex;
+            gap: 15px;
+            margin-left: auto;
+        }
+        .nav-links a {
+            color: #64b5f6;
+            text-decoration: none;
+            font-size: 13px;
+        }
+        .nav-links a:hover {
+            text-decoration: underline;
+        }
+        .main-content {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+            position: relative;
+        }
+        #map {
+            flex: 1;
+            background: #0f0f1a;
+        }
+        /* Dark theme for map tiles */
+        .leaflet-tile {
+            filter: brightness(0.6) invert(1) contrast(3) hue-rotate(200deg) saturate(0.3) brightness(0.7);
+        }
+        .leaflet-container {
+            background: #0f0f1a;
+        }
+        /* Sidebar */
+        .sidebar {
+            width: 320px;
+            background: rgba(15, 15, 26, 0.95);
+            border-left: 1px solid #333;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            z-index: 500;
+        }
+        .sidebar.hidden {
+            display: none;
+        }
+        .sidebar-header {
+            padding: 15px;
+            background: rgba(26, 26, 46, 0.9);
+            border-bottom: 1px solid #333;
+        }
+        .sidebar-header h3 {
+            font-size: 16px;
+            color: #64b5f6;
+            margin-bottom: 5px;
+        }
+        .sidebar-header .subtitle {
+            font-size: 12px;
+            color: #888;
+        }
+        .sidebar-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 15px;
+        }
+        .sidebar-section {
+            margin-bottom: 20px;
+        }
+        .sidebar-section h4 {
+            font-size: 12px;
+            color: #64b5f6;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+        }
+        .person-item, .location-item {
+            padding: 10px 12px;
+            background: rgba(37, 37, 64, 0.5);
+            border-radius: 4px;
+            margin-bottom: 6px;
+            cursor: pointer;
+            transition: background 0.15s;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .person-item:hover, .location-item:hover {
+            background: rgba(100, 181, 246, 0.15);
+        }
+        .person-item.selected, .location-item.selected {
+            background: rgba(100, 181, 246, 0.25);
+            border-left: 3px solid #64b5f6;
+        }
+        .person-item .name, .location-item .name {
+            font-size: 13px;
+        }
+        .person-item .count, .location-item .count {
+            font-size: 11px;
+            color: #888;
+        }
+        .detail-link {
+            display: block;
+            color: #64b5f6;
+            text-decoration: none;
+            font-size: 12px;
+            margin-top: 5px;
+        }
+        .detail-link:hover {
+            text-decoration: underline;
+        }
+        /* Person list for person view */
+        .person-list {
+            max-height: 300px;
+            overflow-y: auto;
+            margin-bottom: 15px;
+        }
+        .person-search {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid #333;
+            border-radius: 4px;
+            background: #252540;
+            color: #eee;
+            font-size: 13px;
+            margin-bottom: 10px;
+        }
+        .person-search:focus {
+            outline: none;
+            border-color: #64b5f6;
+        }
+        /* Loading and empty states */
+        .loading {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 40px;
+            color: #888;
+        }
+        .spinner {
+            width: 30px;
+            height: 30px;
+            border: 3px solid #333;
+            border-top-color: #64b5f6;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 15px;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+        /* Legend */
+        .map-legend {
+            position: absolute;
+            bottom: 30px;
+            left: 10px;
+            background: rgba(26, 26, 46, 0.95);
+            padding: 10px 15px;
+            border-radius: 6px;
+            border: 1px solid #333;
+            z-index: 1000;
+            font-size: 11px;
+        }
+        .map-legend h4 {
+            color: #64b5f6;
+            margin-bottom: 8px;
+            font-size: 12px;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 4px;
+        }
+        .legend-color {
+            width: 20px;
+            height: 10px;
+            border-radius: 2px;
+        }
+        /* Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #1a1a2e;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #333;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #444;
+        }
+        /* Custom popup styling */
+        .leaflet-popup-content-wrapper {
+            background: rgba(26, 26, 46, 0.95);
+            color: #eee;
+            border-radius: 6px;
+        }
+        .leaflet-popup-tip {
+            background: rgba(26, 26, 46, 0.95);
+        }
+        .leaflet-popup-content {
+            margin: 12px;
+        }
+        .popup-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: #64b5f6;
+            margin-bottom: 5px;
+        }
+        .popup-stat {
+            font-size: 12px;
+            color: #aaa;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Geographic Map</h1>
+            <div class="view-tabs">
+                <div class="view-tab active" data-view="hotspot">Hotspots</div>
+                <div class="view-tab" data-view="person">By Person</div>
+            </div>
+            <div class="search-container">
+                <input type="text" id="search" placeholder="Search locations or persons..." autocomplete="off">
+            </div>
+            <div class="nav-links">
+                <a href="person_browser.html">Person Browser</a>
+                <a href="network_viewer.html">Network Viewer</a>
+                <a href="timeline_explorer.html">Timeline</a>
+            </div>
+        </header>
+
+        <div class="main-content">
+            <div id="map"></div>
+
+            <div class="sidebar" id="sidebar">
+                <!-- Hotspot view sidebar -->
+                <div id="hotspot-sidebar">
+                    <div class="sidebar-header">
+                        <h3>Location Details</h3>
+                        <div class="subtitle">Click a marker on the map</div>
+                    </div>
+                    <div class="sidebar-content" id="location-details">
+                        <div class="empty-state">
+                            <p>Select a location on the map to see associated persons</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Person view sidebar -->
+                <div id="person-sidebar" style="display: none;">
+                    <div class="sidebar-header">
+                        <h3>Select Person</h3>
+                        <div class="subtitle">Choose a person to see their locations</div>
+                    </div>
+                    <div class="sidebar-content">
+                        <input type="text" class="person-search" id="person-search" placeholder="Filter persons...">
+                        <div class="person-list" id="person-list">
+                            <div class="loading">
+                                <div class="spinner"></div>
+                                Loading...
+                            </div>
+                        </div>
+                        <div id="person-details" style="display: none;">
+                            <div class="sidebar-section">
+                                <h4>Selected Person</h4>
+                                <div id="selected-person-info"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="map-legend" id="legend">
+                <h4>Mentions</h4>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: rgba(100, 181, 246, 0.3)"></div>
+                    <span>Low</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: rgba(100, 181, 246, 0.6)"></div>
+                    <span>Medium</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #64b5f6"></div>
+                    <span>High</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // State
+        let map = null;
+        let heatLayer = null;
+        let markersLayer = null;
+        let locationData = null;
+        let locationIndex = null;
+        let personLocations = null;
+        let currentView = 'hotspot';
+        let selectedPerson = null;
+        let selectedLocation = null;
+
+        // Initialize
+        async function init() {
+            // Initialize map
+            map = L.map('map', {
+                center: [30, -50],
+                zoom: 3,
+                minZoom: 2,
+                maxZoom: 18
+            });
+
+            // Add dark-themed tiles
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; OpenStreetMap contributors'
+            }).addTo(map);
+
+            // Load data
+            try {
+                const [locRes, indexRes, personRes] = await Promise.all([
+                    fetch('/data/map/locations.json'),
+                    fetch('/data/map/location_index.json'),
+                    fetch('/data/map/person_locations.json')
+                ]);
+
+                locationData = await locRes.json();
+                locationIndex = await indexRes.json();
+                personLocations = await personRes.json();
+
+                console.log(`Loaded ${locationData.total_locations} locations`);
+                renderHotspotView();
+                renderPersonList();
+
+            } catch (error) {
+                console.error('Failed to load map data:', error);
+                document.getElementById('location-details').innerHTML =
+                    '<div class="empty-state"><p>Error loading map data. Run preprocess_browser_data.py first.</p></div>';
+            }
+        }
+
+        // Render hotspot/heatmap view
+        function renderHotspotView() {
+            clearLayers();
+
+            if (!locationData || !locationData.locations.length) return;
+
+            // Create heatmap data
+            const heatData = locationData.locations.map(loc => [
+                loc.lat,
+                loc.lon,
+                Math.log(loc.mentions + 1) / Math.log(10000)  // Normalize
+            ]);
+
+            heatLayer = L.heatLayer(heatData, {
+                radius: 25,
+                blur: 20,
+                maxZoom: 10,
+                gradient: {
+                    0.2: '#1e3a5f',
+                    0.4: '#3f51b5',
+                    0.6: '#64b5f6',
+                    0.8: '#e91e63',
+                    1.0: '#ff5722'
+                }
+            }).addTo(map);
+
+            // Add clickable markers for top locations
+            markersLayer = L.layerGroup();
+
+            const topLocations = locationData.locations
+                .sort((a, b) => b.mentions - a.mentions)
+                .slice(0, 150);
+
+            topLocations.forEach(loc => {
+                const radius = Math.max(4, Math.min(15, Math.log(loc.mentions) * 2));
+
+                const marker = L.circleMarker([loc.lat, loc.lon], {
+                    radius: radius,
+                    fillColor: '#64b5f6',
+                    fillOpacity: 0.7,
+                    color: '#fff',
+                    weight: 1
+                });
+
+                marker.bindPopup(`
+                    <div class="popup-title">${escapeHtml(loc.name)}</div>
+                    <div class="popup-stat">${loc.mentions.toLocaleString()} mentions</div>
+                    <div class="popup-stat">${loc.persons_count} associated persons</div>
+                `);
+
+                marker.on('click', () => showLocationDetails(loc.name));
+
+                markersLayer.addLayer(marker);
+            });
+
+            markersLayer.addTo(map);
+
+            // Fit bounds to show all locations
+            const bounds = locationData.locations.map(l => [l.lat, l.lon]);
+            if (bounds.length > 0) {
+                map.fitBounds(bounds, { padding: [50, 50], maxZoom: 5 });
+            }
+        }
+
+        // Render person view
+        function renderPersonView(personName) {
+            clearLayers();
+            selectedPerson = personName;
+
+            const personData = personLocations[personName];
+            if (!personData || !personData.locations.length) {
+                return;
+            }
+
+            markersLayer = L.layerGroup();
+
+            const maxCooc = Math.max(...personData.locations.map(l => l.cooccurrences));
+
+            personData.locations.forEach(loc => {
+                const intensity = loc.cooccurrences / maxCooc;
+                const radius = Math.max(6, Math.min(20, intensity * 20));
+
+                const marker = L.circleMarker([loc.lat, loc.lon], {
+                    radius: radius,
+                    fillColor: '#64b5f6',
+                    fillOpacity: 0.5 + intensity * 0.5,
+                    color: '#fff',
+                    weight: 2
+                });
+
+                marker.bindPopup(`
+                    <div class="popup-title">${escapeHtml(loc.location)}</div>
+                    <div class="popup-stat">${loc.cooccurrences} co-occurrences with ${escapeHtml(personName)}</div>
+                `);
+
+                markersLayer.addLayer(marker);
+            });
+
+            markersLayer.addTo(map);
+
+            // Fit bounds
+            const bounds = personData.locations.map(l => [l.lat, l.lon]);
+            if (bounds.length > 0) {
+                map.fitBounds(bounds, { padding: [50, 50] });
+            }
+
+            // Update sidebar
+            document.getElementById('selected-person-info').innerHTML = `
+                <div class="person-item selected">
+                    <span class="name">${escapeHtml(personName)}</span>
+                    <span class="count">${personData.total_locations} locations</span>
+                </div>
+                <a href="person_browser.html#${encodeURIComponent(personName)}" class="detail-link">
+                    View in Person Browser &rarr;
+                </a>
+            `;
+            document.getElementById('person-details').style.display = 'block';
+        }
+
+        // Show location details in sidebar
+        function showLocationDetails(locationName) {
+            selectedLocation = locationName;
+
+            const locInfo = locationIndex[locationName];
+            if (!locInfo) {
+                document.getElementById('location-details').innerHTML =
+                    '<div class="empty-state"><p>No details available</p></div>';
+                return;
+            }
+
+            const personsHtml = locInfo.top_persons.map(p => `
+                <div class="person-item" data-person="${escapeHtml(p.person)}">
+                    <span class="name">${escapeHtml(p.person)}</span>
+                    <span class="count">${p.cooccurrences}</span>
+                </div>
+            `).join('');
+
+            document.getElementById('location-details').innerHTML = `
+                <div class="sidebar-section">
+                    <h4>${escapeHtml(locationName)}</h4>
+                    <div class="location-item">
+                        <span class="name">Total Mentions</span>
+                        <span class="count">${locInfo.total_mentions?.toLocaleString() || 'N/A'}</span>
+                    </div>
+                </div>
+                <div class="sidebar-section">
+                    <h4>Top Associated Persons</h4>
+                    ${personsHtml}
+                </div>
+            `;
+
+            // Add click handlers for person items
+            document.querySelectorAll('#location-details .person-item').forEach(item => {
+                item.addEventListener('click', () => {
+                    const person = item.dataset.person;
+                    window.open(`person_browser.html#${encodeURIComponent(person)}`, '_blank');
+                });
+            });
+        }
+
+        // Render person list in sidebar
+        function renderPersonList(filter = '') {
+            const personList = document.getElementById('person-list');
+
+            if (!personLocations) {
+                personList.innerHTML = '<div class="empty-state"><p>No data</p></div>';
+                return;
+            }
+
+            let persons = Object.entries(personLocations)
+                .map(([name, data]) => ({
+                    name,
+                    locationCount: data.total_locations,
+                    totalCooc: data.locations.reduce((sum, l) => sum + l.cooccurrences, 0)
+                }))
+                .sort((a, b) => b.totalCooc - a.totalCooc);
+
+            if (filter) {
+                const term = filter.toUpperCase();
+                persons = persons.filter(p => p.name.toUpperCase().includes(term));
+            }
+
+            if (persons.length === 0) {
+                personList.innerHTML = '<div class="empty-state"><p>No matches</p></div>';
+                return;
+            }
+
+            personList.innerHTML = persons.slice(0, 200).map(p => `
+                <div class="person-item ${selectedPerson === p.name ? 'selected' : ''}"
+                     data-person="${escapeHtml(p.name)}">
+                    <span class="name">${escapeHtml(p.name)}</span>
+                    <span class="count">${p.locationCount} locs</span>
+                </div>
+            `).join('');
+
+            personList.querySelectorAll('.person-item').forEach(item => {
+                item.addEventListener('click', () => {
+                    renderPersonView(item.dataset.person);
+                    personList.querySelectorAll('.person-item').forEach(i =>
+                        i.classList.toggle('selected', i.dataset.person === item.dataset.person)
+                    );
+                });
+            });
+        }
+
+        // Clear map layers
+        function clearLayers() {
+            if (heatLayer) {
+                map.removeLayer(heatLayer);
+                heatLayer = null;
+            }
+            if (markersLayer) {
+                map.removeLayer(markersLayer);
+                markersLayer = null;
+            }
+        }
+
+        // Switch view
+        function switchView(view) {
+            currentView = view;
+            selectedPerson = null;
+            selectedLocation = null;
+
+            document.querySelectorAll('.view-tab').forEach(tab => {
+                tab.classList.toggle('active', tab.dataset.view === view);
+            });
+
+            document.getElementById('hotspot-sidebar').style.display = view === 'hotspot' ? 'block' : 'none';
+            document.getElementById('person-sidebar').style.display = view === 'person' ? 'block' : 'none';
+
+            if (view === 'hotspot') {
+                renderHotspotView();
+                document.getElementById('location-details').innerHTML =
+                    '<div class="empty-state"><p>Select a location on the map to see associated persons</p></div>';
+            } else {
+                clearLayers();
+                document.getElementById('person-details').style.display = 'none';
+            }
+        }
+
+        // Utility
+        function escapeHtml(text) {
+            if (!text) return '';
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function debounce(func, wait) {
+            let timeout;
+            return function(...args) {
+                clearTimeout(timeout);
+                timeout = setTimeout(() => func.apply(this, args), wait);
+            };
+        }
+
+        // Event listeners
+        document.querySelectorAll('.view-tab').forEach(tab => {
+            tab.addEventListener('click', () => switchView(tab.dataset.view));
+        });
+
+        document.getElementById('person-search').addEventListener('input',
+            debounce((e) => renderPersonList(e.target.value), 200)
+        );
+
+        document.getElementById('search').addEventListener('input', debounce((e) => {
+            const term = e.target.value.toLowerCase();
+            if (!term) return;
+
+            // Search in locations
+            if (currentView === 'hotspot' && locationData) {
+                const match = locationData.locations.find(l =>
+                    l.name.toLowerCase().includes(term)
+                );
+                if (match) {
+                    map.setView([match.lat, match.lon], 8);
+                    showLocationDetails(match.name);
+                }
+            }
+
+            // Search in persons
+            if (currentView === 'person') {
+                renderPersonList(term);
+            }
+        }, 300));
+
+        // Initialize on load
+        init();
+    </script>
+</body>
+</html>

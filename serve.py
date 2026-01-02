@@ -187,15 +187,22 @@ def main():
     print(f"Starting server at http://localhost:{PORT}")
     print()
     print("Available applications:")
-    print(f"  - Network Viewer: http://localhost:{PORT}/network_viewer.html")
-    print(f"  - Person Browser: http://localhost:{PORT}/person_browser.html")
+    print(f"  - Person Browser:    http://localhost:{PORT}/person_browser.html")
+    print(f"  - Network Viewer:    http://localhost:{PORT}/network_viewer.html")
+    print(f"  - Timeline Explorer: http://localhost:{PORT}/timeline_explorer.html")
+    print(f"  - Geographic Map:    http://localhost:{PORT}/geographic_map.html")
     print()
     print("Press Ctrl+C to stop")
 
     # Determine which app to open
     app = 'person_browser.html'
-    if len(sys.argv) > 1 and sys.argv[1] == '--network':
-        app = 'network_viewer.html'
+    if len(sys.argv) > 1:
+        if sys.argv[1] == '--network':
+            app = 'network_viewer.html'
+        elif sys.argv[1] == '--timeline':
+            app = 'timeline_explorer.html'
+        elif sys.argv[1] == '--map':
+            app = 'geographic_map.html'
 
     webbrowser.open(f'http://localhost:{PORT}/{app}')
 
